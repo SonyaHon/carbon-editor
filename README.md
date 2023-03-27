@@ -4,17 +4,18 @@
 An experiment to create a usable emacs-inspired editor with Clojure
 
 ## Running
-*ONLY MacOS is supported right now *
+**ONLY MacOS is supported right now**
 #### Dependencies
 * Clojure
 * Make
 
 #### Running
+* If you are on M1
 ```bash
-# If you are on M1
 make macos-arm
-
-# If you are on Intel
+```
+* If you are on Intel
+```bash
 make macos
 ```
 
