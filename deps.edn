@@ -1,0 +1,17 @@
+{:deps {org.clojure/clojure                          {:mvn/version "1.11.1"}
+        org.lwjgl/lwjgl                              {:mvn/version "3.3.1"}
+        org.lwjgl/lwjgl-glfw                         {:mvn/version "3.3.1"}
+        org.lwjgl/lwjgl-opengl                       {:mvn/version "3.3.1"}
+        nrepl/nrepl                                  {:mvn/version "1.0.0"}
+        org.clojure/tools.cli                        {:mvn/version "1.0.214"}
+        cider/cider-nrepl                            {:mvn/version "0.29.0"}}
+ :mvn/repos {"space-maven" {:url "https://packages.jetbrains.team/maven/p/skija/maven"}
+             "central"     {:url "https://repo1.maven.org/maven2/"}
+             "clojars"     {:url "https://clojars.org/repo"}}
+ :paths ["src" "lib/lwjgl"]
+ :aliases {:macos-arm {:extra-deps {org.jetbrains.skija/skija-macos-arm64      {:mvn/version "0.93.6"}
+                                    org.lwjgl/lwjgl$natives-macos-arm64        {:mvn/version "3.3.1"}
+                                    org.lwjgl/lwjgl-glfw$natives-macos-arm64   {:mvn/version "3.3.1"}
+                                    org.lwjgl/lwjgl-opengl$natives-macos-arm64 {:mvn/version "3.3.1"}}
+                       :extra-paths ["lib/natives_macos_arm"]
+                       :jvm-opts ["-XstartOnFirstThread"]}}}
