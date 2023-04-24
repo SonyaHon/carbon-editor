@@ -2,8 +2,9 @@
   (:require [clojure.tools.cli :as cli]))
 
 (def cli-options
-  [["-c" "--config PATH" "Entry to the configuration file"
-    :default nil]])
+  [["-h" "--help" "Displays help message"]
+   ["-wh" "--window-height PIXELS" "Sets initial window height" :default 800]
+   ["-ww" "--window-width PIXELS" "Sets initial window width" :default 1200]])
 
 (defn parse
   "Parse CLI options to Carbon and return a map of all entries"

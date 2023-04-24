@@ -1,84 +1,59 @@
 (ns com.sonyahon.carbon.core
-  (:require [com.sonyahon.carbon.repl :as repl]
-            [com.sonyahon.carbon.editor :as editor]
-            [com.sonyahon.carbon.cli :as cli])
-  (:import [org.jetbrains.skija BackendRenderTarget Canvas ColorSpace DirectContext FramebufferFormat Surface SurfaceColorFormat SurfaceOrigin]
-           [org.lwjgl.glfw Callbacks GLFW GLFWErrorCallback GLFWKeyCallback GLFWCharCallback]
-           [org.lwjgl.opengl GL GL11]
-           [org.lwjgl.system MemoryUtil]))
+  (:require [com.sonyahon.carbon.cli :as cli]
+            [com.sonyahon.carbon.gfx.core :as gfx]
+            [com.sonyahon.carbon.utils.clojure :as clj]
+            [com.sonyahon.carbon.editor.core :as editor]
+            [com.sonyahon.carbon.utils.repl :as repl]
+            [com.sonyahon.carbon.defaults.core :as defaults]))
 
 (set! *warn-on-reflection* true)
 
-(defn get-display-scale [window]
-  (let [x (make-array Float/TYPE 1)
-        y (make-array Float/TYPE 1)]
-    (GLFW/glfwGetWindowContentScale window x y)
-    [(first x) (first y)]))
+(defn- render [canvas width height]
+  (editor/render canvas width height))
+
+(defn- key-callback [window key scancode action mods]
+  (editor/handle-key-event window key scancode action mods))
+
+(defn- char-callback [window codepoint]
+  (editor/handle-char-event window codepoint))
 
 (defn -main [& args]
-  (.set (GLFWErrorCallback/createPrint System/err))
+  (let [parsed (cli/parse args)]
+    (if (get-in parsed [:options :help])
+      (do
+        (println "Usage:\n  carbon [Options] [Path]\n")
+        (println "Options:")
+        (println (get parsed :summary)))
+      (do
+        (gfx/set-glfw-error-callback)
+        (gfx/glfw-init)
+        (gfx/set-glfw-window-hints)
 
-  (GLFW/glfwInit)
-  (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
-  (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE)
-  (GLFW/glfwWindowHint GLFW/GLFW_DECORATED GLFW/GLFW_FALSE)
-  (GLFW/glfwWindowHint GLFW/GLFW_TRANSPARENT_FRAMEBUFFER GLFW/GLFW_TRUE)
+        (let [width  (get-in parsed [:options :window-width])
+              height (get-in parsed [:options :window-height])
+              window (gfx/glfw-create-window width height)]
+          (gfx/glfw-setup-capabilities window)
+          (clj/run-clojure-in-thread)
+          (repl/start-nrepl)
+          (let [context           (gfx/create-gl-context)
+                fb-id             (gfx/get-frame-buffer-id)
+                [scale-x scale-y] (gfx/get-display-scale window)
+                render-target     (gfx/get-render-target scale-x scale-y width height fb-id)
+                render-surface    (gfx/get-render-surface context render-target)
+                canvas            (gfx/get-canvas render-surface)]
+            (gfx/scale-canvas canvas scale-x scale-y)
+            (gfx/set-key-callback window #(#'key-callback %1 %2 %3 %4 %5))
+            (gfx/set-char-callback window #(#'char-callback %1 %2))
 
-  (let [width 1200
-        height 900
-        window (GLFW/glfwCreateWindow width height "Carbon" MemoryUtil/NULL MemoryUtil/NULL)]
-    (GLFW/glfwMakeContextCurrent window)
-    (GLFW/glfwSwapInterval 1)
-    (GLFW/glfwShowWindow window)
-    (GL/createCapabilities)
+            (defaults/setup)
 
-    (doto (Thread. #(clojure.main/main))
-      (.start))
+            (loop []
+              (when (gfx/glfw-app-running? window)
+                (let [layer (gfx/save-canvas canvas)]
+                  (#'render canvas width height)
+                  (gfx/restore-canvas canvas layer))
+                (gfx/flush-context context)
+                (gfx/glfw-end-loop window)
+                (recur)))
+            (gfx/terminate window)))))))
 
-    (repl/start-nrepl)
-    (println "nREPL server started at locahost:7888")
-
-    (let [context (DirectContext/makeGL)
-          fb-id   (GL11/glGetInteger 0x8CA6)
-          [scale-x scale-y] (get-display-scale window)
-          target  (BackendRenderTarget/makeGL (* scale-x width) (* scale-y height) 0 8 fb-id FramebufferFormat/GR_GL_RGBA8)
-          surface (Surface/makeFromBackendRenderTarget context target SurfaceOrigin/BOTTOM_LEFT SurfaceColorFormat/RGBA_8888 (ColorSpace/getSRGB))
-          canvas  (.getCanvas surface)]
-
-      (GLFW/glfwSetKeyCallback window (proxy [GLFWKeyCallback] []
-                                        (invoke [window key scancode action mods]
-                                          (#'editor/handle-key-event window key scancode action mods))))
-
-      (GLFW/glfwSetCharCallback window (proxy [GLFWCharCallback] []
-                                         (invoke [window codepoint]
-                                           (#'editor/handle-char-event window codepoint))))
-
-      (.scale canvas scale-x scale-y)
-
-      (let [cmd-options (:options (cli/parse args))]
-        (prn "parsed: " cmd-options)
-        (when (:config cmd-options)
-          (load-file (:config cmd-options))))
-
-      (loop []
-        (when (not (GLFW/glfwWindowShouldClose window))
-          (let [layer (.save canvas)]
-            (#'editor/render canvas 1200 900)
-            (.restoreToCount canvas layer))
-          (.flush context)
-          (GLFW/glfwSwapBuffers window)
-          (GLFW/glfwPollEvents)
-          (recur))))
-
-    (Callbacks/glfwFreeCallbacks window)
-    (GLFW/glfwHideWindow window)
-    (GLFW/glfwDestroyWindow window)
-    (GLFW/glfwPollEvents)
-
-    (GLFW/glfwTerminate)
-    (.free (GLFW/glfwSetErrorCallback nil))
-    (shutdown-agents)))
-
-(comment
-
-  69)
